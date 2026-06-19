@@ -1,1 +1,63 @@
+import sys
 
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QLabel, QPushButton,
+    QLineEdit, QTableWidget, QTableWidgetItem, QVBoxLayout,
+    QHBoxLayout, QMessageBox, QTextEdit, QHeaderView
+)
+
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+
+
+class Flight:
+    licznik_id = 1
+
+    def __init__(self, model_drona, czas_minuty, data):
+        self.id = Flight.licznik_id
+        Flight.licznik_id += 1
+
+        self.model_drona = model_drona
+        self.czas_minuty = int(czas_minuty)
+        self.data = data
+
+    def __str__(self):
+        return f"{self.id}. {self.model_drona} | {self.czas_minuty} min | {self.data}"
+
+
+class DroneManager:
+    def __init__(self):
+        self.loty = []
+
+    def dodaj_lot(self, model_drona, czas_minuty, data):
+        lot = Flight(model_drona, czas_minuty, data)
+        self.loty.append(lot)
+
+    def pobierz_wszystkie_loty(self):
+        return self.loty
+
+    def oblicz_calkowity_nalot(self, model_drona):
+        suma = 0
+
+        for lot in self.loty:
+            if lot.model_drona == model_drona:
+                suma += lot.czas_minuty
+
+        return suma
+
+    def zwracaj_wynik_w_godzinach(self, minuty):
+        return minuty / 60
+
+    def pobierz_slownik_nalotu(self):
+        slownik = {}
+
+        for lot in self.loty:
+            if lot.model_drona in slownik:
+                slownik[lot.model_drona] += lot.czas_minuty
+            else:
+                slownik[lot.model_drona] = lot.czas_minuty
+
+        for model in slownik:
+            slownik[model] = slownik[model] / 60
+
+        return slownik
