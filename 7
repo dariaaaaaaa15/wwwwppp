@@ -1,0 +1,275 @@
+import sys
+import json
+
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QLabel, QPushButton,
+    QLineEdit, QTableWidget, QTableWidgetItem, QVBoxLayout,
+    QHBoxLayout, QMessageBox, QHeaderView
+)
+
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+
+
+class Flight:
+    licznik_id = 1
+
+    def __init__(self, model_drona, czas_minuty, data, id=None):
+        if id is None:
+            self.id = Flight.licznik_id
+            Flight.licznik_id += 1
+        else:
+            self.id = id
+            if id >= Flight.licznik_id:
+                Flight.licznik_id = id + 1
+
+        self.model_drona = model_drona
+        self.czas_minuty = int(czas_minuty)
+        self.data = data
+
+    def __str__(self):
+        return f"{self.id}. {self.model_drona} | {self.czas_minuty} min | {self.data}"
+
+    def na_slownik(self):
+        return {
+            "id": self.id,
+            "model_drona": self.model_drona,
+            "czas_minuty": self.czas_minuty,
+            "data": self.data
+        }
+
+
+class DroneManager:
+    def __init__(self):
+        self.loty = []
+
+    def dodaj_lot(self, model_drona, czas_minuty, data):
+        lot = Flight(model_drona, czas_minuty, data)
+        self.loty.append(lot)
+
+    def pobierz_wszystkie_loty(self):
+        return self.loty
+
+    def oblicz_calkowity_nalot(self, model_drona):
+        suma = 0
+
+        for lot in self.loty:
+            if lot.model_drona == model_drona:
+                suma += lot.czas_minuty
+
+        return suma
+
+    def pobierz_slownik_nalotu(self):
+        slownik = {}
+
+        for lot in self.loty:
+            if lot.model_drona in slownik:
+                slownik[lot.model_drona] += lot.czas_minuty
+            else:
+                slownik[lot.model_drona] = lot.czas_minuty
+
+        # zamiana minut na godziny
+        for model in slownik:
+            slownik[model] = slownik[model] / 60
+
+        return slownik
+
+    def zapisz_do_json(self, sciezka_pliku):
+        dane = []
+
+        for lot in self.loty:
+            dane.append(lot.na_slownik())
+
+        with open(sciezka_pliku, "w", encoding="utf-8") as plik:
+            json.dump(dane, plik, indent=4, ensure_ascii=False)
+
+    def wczytaj_z_json(self, sciezka_pliku):
+        try:
+            with open(sciezka_pliku, "r", encoding="utf-8") as plik:
+                dane = json.load(plik)
+
+            self.loty.clear()
+
+            for element in dane:
+                lot = Flight(
+                    element["model_drona"],
+                    element["czas_minuty"],
+                    element["data"],
+                    element["id"]
+                )
+
+                self.loty.append(lot)
+
+        except FileNotFoundError:
+            print("Plik nie istnieje. Tworzę pusty plik JSON.")
+            self.loty.clear()
+            self.zapisz_do_json(sciezka_pliku)
+
+
+class DroneApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        self.sciezka = "loty.json"
+        self.manager = DroneManager()
+        self.manager.wczytaj_z_json(self.sciezka)
+
+        self.setWindowTitle("Rejestr lotów dronów")
+        self.setGeometry(300, 200, 1000, 700)
+
+        self.model_input = QLineEdit()
+        self.model_input.setPlaceholderText("Model drona")
+
+        self.czas_input = QLineEdit()
+        self.czas_input.setPlaceholderText("Czas lotu w minutach")
+
+        self.data_input = QLineEdit()
+        self.data_input.setPlaceholderText("Data lotu")
+
+        self.przycisk_dodaj = QPushButton("Dodaj lot")
+        self.przycisk_dodaj.clicked.connect(self.dodaj_lot)
+
+        self.tabela = QTableWidget()
+        self.tabela.setColumnCount(4)
+        self.tabela.setHorizontalHeaderLabels([
+            "ID",
+            "Model drona",
+            "Czas [min]",
+            "Data"
+        ])
+        self.tabela.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+        self.figure = Figure()
+        self.canvas = FigureCanvas(self.figure)
+
+        formularz = QHBoxLayout()
+        formularz.addWidget(self.model_input)
+        formularz.addWidget(self.czas_input)
+        formularz.addWidget(self.data_input)
+        formularz.addWidget(self.przycisk_dodaj)
+
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("Aplikacja do rejestrowania lotów dronów"))
+        layout.addLayout(formularz)
+        layout.addWidget(self.tabela)
+        layout.addWidget(self.canvas)
+
+        kontener = QWidget()
+        kontener.setLayout(layout)
+        self.setCentralWidget(kontener)
+
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #f2f6fa;
+            }
+
+            QLabel {
+                font-size: 16px;
+                font-weight: bold;
+            }
+
+            QLineEdit {
+                background-color: white;
+                border: 1px solid gray;
+                border-radius: 6px;
+                padding: 6px;
+                font-size: 13px;
+            }
+
+            QPushButton {
+                background-color: #2d89ef;
+                color: white;
+                border-radius: 8px;
+                padding: 8px;
+                font-weight: bold;
+            }
+
+            QPushButton:hover {
+                background-color: #1b5fa7;
+            }
+
+            QTableWidget {
+                background-color: white;
+                gridline-color: #cccccc;
+                font-size: 13px;
+            }
+
+            QHeaderView::section {
+                background-color: #2d89ef;
+                color: white;
+                padding: 5px;
+                font-weight: bold;
+            }
+        """)
+
+        self.odswiez_tabele()
+        self.odswiez_wykres()
+
+    def dodaj_lot(self):
+        model = self.model_input.text()
+        czas = self.czas_input.text()
+        data = self.data_input.text()
+
+        if model == "" or czas == "" or data == "":
+            QMessageBox.warning(
+                self,
+                "Błąd",
+                "Uzupełnij wszystkie pola."
+            )
+            return
+
+        try:
+            self.manager.dodaj_lot(model, czas, data)
+
+            self.manager.zapisz_do_json(self.sciezka)
+
+            self.odswiez_tabele()
+            self.odswiez_wykres()
+
+            self.model_input.clear()
+            self.czas_input.clear()
+            self.data_input.clear()
+
+        except ValueError:
+            QMessageBox.warning(
+                self,
+                "Błąd danych",
+                "Czas lotu musi być liczbą całkowitą."
+            )
+
+    def odswiez_tabele(self):
+        loty = self.manager.pobierz_wszystkie_loty()
+
+        self.tabela.setRowCount(len(loty))
+
+        for i, lot in enumerate(loty):
+            self.tabela.setItem(i, 0, QTableWidgetItem(str(lot.id)))
+            self.tabela.setItem(i, 1, QTableWidgetItem(lot.model_drona))
+            self.tabela.setItem(i, 2, QTableWidgetItem(str(lot.czas_minuty)))
+            self.tabela.setItem(i, 3, QTableWidgetItem(lot.data))
+
+    def odswiez_wykres(self):
+        dane = self.manager.pobierz_slownik_nalotu()
+
+        self.figure.clear()
+        ax = self.figure.add_subplot(111)
+
+        if dane:
+            ax.bar(dane.keys(), dane.values())
+            ax.set_title("Całkowity nalot według modelu drona")
+            ax.set_xlabel("Model drona")
+            ax.set_ylabel("Całkowity nalot [godziny]")
+        else:
+            ax.set_title("Brak danych do wykresu")
+            ax.set_xlabel("Model drona")
+            ax.set_ylabel("Całkowity nalot [godziny]")
+
+        self.figure.tight_layout()
+        self.canvas.draw()
+
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    okno = DroneApp()
+    okno.show()
+    sys.exit(app.exec_())
