@@ -1,0 +1,126 @@
+import json
+
+
+class Flight:
+    licznik_id = 1
+
+    def __init__(self, model_drona, czas_minuty, data, id=None):
+        if id is None:
+            self.id = Flight.licznik_id
+            Flight.licznik_id += 1
+        else:
+            self.id = id
+            if id >= Flight.licznik_id:
+                Flight.licznik_id = id + 1
+
+        self.model_drona = model_drona
+        self.czas_minuty = int(czas_minuty)
+        self.data = data
+
+    def __str__(self):
+        return f"ID: {self.id} | Model: {self.model_drona} | Czas: {self.czas_minuty} min | Data: {self.data}"
+
+    def na_slownik(self):
+        return {
+            "id": self.id,
+            "model_drona": self.model_drona,
+            "czas_minuty": self.czas_minuty,
+            "data": self.data
+        }
+
+
+class DroneManager:
+    def __init__(self):
+        self.loty = []
+
+    def dodaj_lot(self, model_drona, czas_minuty, data):
+        lot = Flight(model_drona, czas_minuty, data)
+        self.loty.append(lot)
+
+    def pobierz_wszystkie_loty(self):
+        return self.loty
+
+    def oblicz_calkowity_nalot(self, model_drona):
+        suma = 0
+
+        for lot in self.loty:
+            if lot.model_drona == model_drona:
+                suma += lot.czas_minuty
+
+        return suma
+
+    def pobierz_slownik_nalotu(self):
+        slownik = {}
+
+        for lot in self.loty:
+            if lot.model_drona in slownik:
+                slownik[lot.model_drona] += lot.czas_minuty
+            else:
+                slownik[lot.model_drona] = lot.czas_minuty
+
+        return slownik
+
+    def zapisz_do_json(self, sciezka_pliku):
+        dane = []
+
+        for lot in self.loty:
+            dane.append(lot.na_slownik())
+
+        with open(sciezka_pliku, "w", encoding="utf-8") as plik:
+            json.dump(dane, plik, indent=4, ensure_ascii=False)
+
+    def wczytaj_z_json(self, sciezka_pliku):
+        try:
+            with open(sciezka_pliku, "r", encoding="utf-8") as plik:
+                dane = json.load(plik)
+
+            self.loty.clear()
+
+            for element in dane:
+                lot = Flight(
+                    element["model_drona"],
+                    element["czas_minuty"],
+                    element["data"],
+                    element["id"]
+                )
+
+                self.loty.append(lot)
+
+        except FileNotFoundError:
+            print("Plik nie istnieje. Tworzę nowy pusty plik JSON.")
+            self.loty.clear()
+            self.zapisz_do_json(sciezka_pliku)
+
+
+if __name__ == "__main__":
+    manager = DroneManager()
+
+    sciezka = "loty.json"
+
+    manager.wczytaj_z_json(sciezka)
+
+    print("AKTUALNY STAN FLOTY PO WCZYTANIU:")
+    for lot in manager.pobierz_wszystkie_loty():
+        print(lot)
+
+    print()
+
+    manager.dodaj_lot("DJI Mavic 3", 45, "2026-06-19")
+
+    print("STAN FLOTY PO DODANIU NOWEGO LOTU:")
+    for lot in manager.pobierz_wszystkie_loty():
+        print(lot)
+
+    print()
+
+    print("CAŁKOWITY NALOT W MINUTACH WEDŁUG MODELU:")
+    slownik = manager.pobierz_slownik_nalotu()
+
+    for model in slownik:
+        print(f"{model}: {slownik[model]} minut")
+
+    manager.zapisz_do_json(sciezka)
+
+    print()
+    print("Dane zostały zapisane do pliku JSON.")
+  
