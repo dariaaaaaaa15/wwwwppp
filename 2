@@ -1,1 +1,125 @@
+class DroneApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
 
+        self.manager = DroneManager()
+
+        self.setWindowTitle("Aplikacja do rejestrowania lotów dronów")
+        self.setGeometry(300, 200, 1000, 750)
+
+        self.model_input = QLineEdit()
+        self.model_input.setPlaceholderText("Model drona, np. DJI Mavic 3")
+
+        self.czas_input = QLineEdit()
+        self.czas_input.setPlaceholderText("Czas lotu w minutach")
+
+        self.data_input = QLineEdit()
+        self.data_input.setPlaceholderText("Data lotu, np. 2026-06-19")
+
+        self.model_raport_input = QLineEdit()
+        self.model_raport_input.setPlaceholderText("Model drona do sprawdzenia nalotu")
+
+        self.przycisk_dodaj = QPushButton("Dodaj lot")
+        self.przycisk_dodaj.clicked.connect(self.dodaj_lot)
+
+        self.przycisk_nalot = QPushButton("Oblicz nalot modelu")
+        self.przycisk_nalot.clicked.connect(self.oblicz_nalot_modelu)
+
+        self.przycisk_raport = QPushButton("Pokaż raport")
+        self.przycisk_raport.clicked.connect(self.pokaz_raport)
+
+        self.tabela = QTableWidget()
+        self.tabela.setColumnCount(4)
+        self.tabela.setHorizontalHeaderLabels([
+            "ID",
+            "Model drona",
+            "Czas lotu [min]",
+            "Data"
+        ])
+        self.tabela.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+        self.raport_text = QTextEdit()
+        self.raport_text.setReadOnly(True)
+
+        self.figure = Figure()
+        self.canvas = FigureCanvas(self.figure)
+
+        formularz = QHBoxLayout()
+        formularz.addWidget(self.model_input)
+        formularz.addWidget(self.czas_input)
+        formularz.addWidget(self.data_input)
+        formularz.addWidget(self.przycisk_dodaj)
+
+        raport_layout = QHBoxLayout()
+        raport_layout.addWidget(self.model_raport_input)
+        raport_layout.addWidget(self.przycisk_nalot)
+        raport_layout.addWidget(self.przycisk_raport)
+
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("System rejestrowania czasu lotów dronów"))
+        layout.addLayout(formularz)
+        layout.addLayout(raport_layout)
+        layout.addWidget(self.tabela)
+        layout.addWidget(QLabel("Raport:"))
+        layout.addWidget(self.raport_text)
+        layout.addWidget(self.canvas)
+
+        kontener = QWidget()
+        kontener.setLayout(layout)
+        self.setCentralWidget(kontener)
+
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #f0f4f8;
+            }
+
+            QLabel {
+                font-size: 14px;
+                font-weight: bold;
+            }
+
+            QLineEdit {
+                background-color: white;
+                border: 1px solid gray;
+                border-radius: 6px;
+                padding: 6px;
+                font-size: 13px;
+            }
+
+            QPushButton {
+                background-color: #2d89ef;
+                color: white;
+                border-radius: 8px;
+                padding: 8px;
+                font-weight: bold;
+            }
+
+            QPushButton:hover {
+                background-color: #1b5fa7;
+            }
+
+            QTableWidget {
+                background-color: white;
+                gridline-color: #cccccc;
+                font-size: 13px;
+            }
+
+            QHeaderView::section {
+                background-color: #2d89ef;
+                color: white;
+                padding: 5px;
+                font-weight: bold;
+            }
+
+            QTextEdit {
+                background-color: white;
+                border: 1px solid gray;
+                border-radius: 6px;
+                padding: 6px;
+                font-size: 13px;
+            }
+        """)
+
+        self.dodaj_dane_testowe()
+        self.odswiez_tabele()
+        self.odswiez_wykres()
