@@ -1,1 +1,104 @@
+ def dodaj_dane_testowe(self):
+        self.manager.dodaj_lot("DJI Mavic 3", 120, "2026-06-19")
+        self.manager.dodaj_lot("DJI Mavic 3", 150, "2026-06-20")
+        self.manager.dodaj_lot("Autel Evo 2", 90, "2026-06-21")
+        self.manager.dodaj_lot("Autel Evo 2", 60, "2026-06-22")
 
+    def dodaj_lot(self):
+        model = self.model_input.text()
+        czas = self.czas_input.text()
+        data = self.data_input.text()
+
+        if model == "" or czas == "" or data == "":
+            QMessageBox.warning(
+                self,
+                "Błąd",
+                "Uzupełnij wszystkie pola."
+            )
+            return
+
+        try:
+            self.manager.dodaj_lot(model, czas, data)
+
+            self.model_input.clear()
+            self.czas_input.clear()
+            self.data_input.clear()
+
+            self.odswiez_tabele()
+            self.odswiez_wykres()
+            self.pokaz_raport()
+
+        except ValueError:
+            QMessageBox.warning(
+                self,
+                "Błąd danych",
+                "Czas lotu musi być liczbą całkowitą."
+            )
+
+    def odswiez_tabele(self):
+        loty = self.manager.pobierz_wszystkie_loty()
+
+        self.tabela.setRowCount(len(loty))
+
+        for i, lot in enumerate(loty):
+            self.tabela.setItem(i, 0, QTableWidgetItem(str(lot.id)))
+            self.tabela.setItem(i, 1, QTableWidgetItem(lot.model_drona))
+            self.tabela.setItem(i, 2, QTableWidgetItem(str(lot.czas_minuty)))
+            self.tabela.setItem(i, 3, QTableWidgetItem(lot.data))
+
+    def oblicz_nalot_modelu(self):
+        model = self.model_raport_input.text()
+
+        if model == "":
+            QMessageBox.warning(
+                self,
+                "Błąd",
+                "Podaj model drona."
+            )
+            return
+
+        minuty = self.manager.oblicz_calkowity_nalot(model)
+        godziny = self.manager.zwracaj_wynik_w_godzinach(minuty)
+
+        self.raport_text.setText(
+            f"Całkowity nalot dla modelu {model}: {godziny:.2f} godzin"
+        )
+
+    def pokaz_raport(self):
+        slownik = self.manager.pobierz_slownik_nalotu()
+
+        tekst = "Raport całkowitego nalotu według modeli:\n\n"
+
+        if len(slownik) == 0:
+            tekst += "Brak danych."
+        else:
+            for model in slownik:
+                tekst += f"{model}: {slownik[model]:.2f} godzin\n"
+
+        self.raport_text.setText(tekst)
+
+    def odswiez_wykres(self):
+        dane = self.manager.pobierz_slownik_nalotu()
+
+        self.figure.clear()
+        ax = self.figure.add_subplot(111)
+
+        if dane:
+            ax.bar(dane.keys(), dane.values())
+            ax.set_title("Całkowity nalot według modeli dronów")
+            ax.set_xlabel("Model drona")
+            ax.set_ylabel("Nalot [godziny]")
+        else:
+            ax.set_title("Brak danych do wykresu")
+            ax.set_xlabel("Model drona")
+            ax.set_ylabel("Nalot [godziny]")
+
+        self.figure.tight_layout()
+        self.canvas.draw()
+
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    okno = DroneApp()
+    okno.show()
+    sys.exit(app.exec_())
